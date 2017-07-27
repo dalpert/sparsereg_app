@@ -16,16 +16,19 @@ runApp(
         # Data upload
         tabPanel("Upload File",
                  titlePanel("Uploading Files"),
+                 
                  sidebarLayout(
                    sidebarPanel(
-                     
+
                      checkboxInput("default.button", label = "Use default data"),
+
+                  
                      hidden(
                        fileInput('file1', 'Choose CSV File',
-                                 accept=c('text/csv', 
-                                          'text/comma-separated-values,text/plain', 
+                                 accept=c('text/csv',
+                                          'text/comma-separated-values,text/plain',
                                           '.csv')),
-                       
+
                        # added interface for uploading data from
                        # http://shiny.rstudio.com/gallery/file-upload.html
                        tags$br(),
@@ -41,12 +44,11 @@ runApp(
                                       'Single Quote'="'"),
                                     '"')
                      )
-                     
                    ),
                    mainPanel(
                      tableOutput('contents')
                    )
-                 )
+                )
         ),
         
         tabPanel("Data Exploration",
@@ -297,7 +299,55 @@ runApp(
                                )
                                
                  )
-        )
+        ),
+        
+        # sparseregNP
+        tabPanel(title = "sparseregNP",
+                 titlePanel("Sparsereg NP"),
+                 
+                 sidebarLayout(position = "right",
+                               mainPanel(h2("Your Model"), 
+                                         textOutput('np.txt'),
+                                         #textOutput('te.vars'),
+                                         tableOutput(outputId = 'np.table'),
+                                         #textOutput('s.em.text'),
+                                         verbatimTextOutput('np.modelSummary')
+                                         
+                                         #actionButton('plotratio',"Plot ratio"),
+                                         #plotOutput('corr')
+                                         
+                               ),
+                               
+                               sidebarPanel(h2("Your Data"),
+                                            # Response
+                                            selectInput('np.yvar', 'Select response', ""),
+                                            # Covariates
+                                            selectInput('np.xvars', 'Select covariates', "", 
+                                                        selected = "", multiple = TRUE),
+                                            # Run button
+                                            actionButton("np.analysis","Run"),
+                                            tags$head(tags$style(type="text/css", "
+                                                                 #loadmessage {
+                                                                 position: fixed;
+                                                                 top: 0px;
+                                                                 left: 0px;
+                                                                 width: 100%;
+                                                                 padding: 5px 0px 5px 0px;
+                                                                 text-align: center;
+                                                                 font-weight: bold;
+                                                                 font-size: 100%;
+                                                                 color: #000000;
+                                                                 background-color: #CCFF66;
+                                                                 z-index: 105;
+                                                                 }
+                                                                 ")),
+                                            conditionalPanel(condition="$('html').hasClass('shiny-busy')",
+                                                             tags$div("SparseregNP is running...",id="loadmessage"))
+                                            
+                                            )
+                               
+                               )
+                        )
         
       )
       
@@ -414,6 +464,11 @@ runApp(
                           choices = names(df), selected = names(df)[2])
         updateSelectInput(session, inputId = 'te.xvars', label = 'Select covariates',
                           choices = names(df))
+        # sparseregNP dropdowns
+        updateSelectInput(session, inputId = 'np.yvar', label = 'Select response',
+                          choices = names(df), selected = names(df)[1])
+        updateSelectInput(session, inputId = 'np.xvars', label = 'Select covariates',
+                          choices = names(df))
         
         #
         output$vars <- renderText({
@@ -460,12 +515,13 @@ runApp(
         
         output$hist.x <- renderUI({
           actionButton('hist.x.b', label = "Plot diagnostics")
+          
         })
         observeEvent( input$hist.x.b, {
           output$diagnostic <- renderUI({
-            plotOutput('p.hist')
+            plotOutput('hist.plot')
           })
-          output$p.hist <- renderPlot({
+          output$hist.plot <- renderPlot({
             hist()
           })
         })
@@ -723,6 +779,38 @@ runApp(
         
         output$te.modelSummary <- renderPrint({
           summary(fit.sparseTE)
+        })
+        
+      })
+      
+      
+      # sparseregNP
+      np.dat <- reactive({
+        parse(text = paste0("c('", paste(input$np.xvars, collapse = "','"), "')"))
+      })
+      
+      output$np.vars <- renderTable({
+        dat.orig()[eval(np.dat())]
+      })
+      
+      output$np.table <- renderTable({
+        head(np.data())
+      }, rownames = TRUE)
+      
+      np.data <- reactive({
+        dat.orig()[, c(input$np.yvar, input$np.xvars), drop = FALSE]
+      })
+      
+      observeEvent( input$np.analysis, {
+        # dat.full = complete.cases(mtcars)
+        X<-as.matrix(np.data()[-(1)])
+        keep.cols<-apply(X,2,sd)>0
+        X<-X[,keep.cols]
+        
+        fit.sparseNP <- sparseregNP(y = as.numeric(np.data()[,1]), X = X)
+        
+        output$np.modelSummary <- renderPrint({
+          summary(fit.sparseNP)
         })
         
       })
