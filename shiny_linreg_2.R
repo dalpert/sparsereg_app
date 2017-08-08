@@ -186,7 +186,7 @@ runApp(
                     selectInput('spiv.xvars', 'Select covariates', '', selected = '', multiple = TRUE),
                     # Number of bootstraps
                     sliderInput('spivmultboot', 'Number of bootstraps', min = 1, max = 20, value = 3),
-                    bsTooltip('spivmultboot', 'Number of bootstrap samples to use during a two-instrument sparseregIV regression. Not applicable for one instrument case. More than 3 can take very long to run.',
+                    bsTooltip('spivmultboot', 'Number of bootstrap samples to use during a two-instrument sparseregIV regression. Not applicable for one instrument case. The defauly is 20, but more than 3 takes very long to run.',
                               'right', options = list(container = 'body')),
                     # Two run buttons--run totally different models
                     actionButton('spiv2.analysis', label = 'Run', class = 'btn-primary'),
@@ -754,6 +754,30 @@ runApp(
         # Not working here, although runs in console :/
         fit.sparseIV.2 <- sparseregIV(y = as.numeric(spiv2.data()[,1]), endog = as.numeric(spiv2.data()[,2]), inst = as.numeric(spiv2.data()[,3]), 
                                       inst2 = as.numeric(spiv2.data()[,4]), X = X, mult.boot = input$spivmultboot)
+        
+        items=names(dat.orig.all())
+        print(items)
+        
+        output$spiv2.tabs <- renderUI({
+            tabsetPanel(
+                id = "navbar2",
+                tabPanel(title = "tab4",
+                         value = "tab4",
+                          h1("Tab 4"),
+                          awesomeRadio('spiv2.col', label = 'Color', choices = c(TRUE, FALSE), selected = TRUE),
+                          plotOutput('spiv2.plot'),
+                          plotlyOutput('spiv2.plotly')
+                ),
+                tabPanel(title = "tab5",
+                         value = "tab5",
+                         h1("Tab 5")
+                ),
+                tabPanel(title = "tab6",
+                         value = "tab6",
+                         h1("Tab 6")
+                )
+              )
+        })
         
         output$spiv2.model.summary <- renderPrint({
           summary(fit.sparseIV.2)
