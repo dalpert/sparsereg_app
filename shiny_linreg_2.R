@@ -164,65 +164,57 @@ runApp(
         tabPanel(title = 'sparseregIV',
             titlePanel('Sparsereg IV'),
             sidebarLayout(position = 'right',
-                mainPanel(h3('Model'), 
-                          textOutput('spiv.txt'),
-                          hidden(tableOutput('spiv.data.table')),
-                          tableOutput('spiv2.data.table'),
-                           
-                          
-                          hidden(verbatimTextOutput('spiv.model.summary')),
-                          verbatimTextOutput('spiv2.model.summary'),
-                           
-                           # PRETTY IMPORTANTE
-                          uiOutput("spiv.tabs")
+                mainPanel(h3('Model'),
+                    # Two models are going on at once in this tab, one must always be hidden while the other shows
+                    hidden(tableOutput('spiv.data.table')),
+                    tableOutput('spiv2.data.table'),
+                    hidden(verbatimTextOutput('spiv.model.summary')),
+                    verbatimTextOutput('spiv2.model.summary'),
+                    # For diagnostic plot tabs after the model is fitted, two sets of tabs present
+                    hidden(uiOutput('spiv.tabs')),
+                    uiOutput('spiv2.tabs')
                 ),
-                           sidebarPanel(h2("Your Data"),
-                                        # Response
-                                        selectInput('spiv.yvar', 'Select response', ""),
-                                        # Endogenous variable
-                                        selectInput('spiv.endog', 'Select endogenous variable', ""),
-                                        
-                                        awesomeCheckbox("num.insts", label = "Use two instruments", value = FALSE),
-                                        
-                                        # Instrument
-                                        selectInput('spiv.inst', 'Select instrument', ""),
-                                        
-                                        selectInput('spiv.inst.2', 'Select second instrument', ""),
-                                        
-                                        
-                                        # Covariates
-                                        selectInput('spiv.xvars', 'Select covariates', "", 
-                                                    selected = "", multiple = TRUE),
-                                        
-                                        #uiOutput("spiv.run"),
-                                        actionButton("spiv2.analysis", label = "IV2", class = "btn-primary"),
-                                        
-                                        # Run button
-                                        hidden(actionButton("spiv.analysis","Run", class = "btn-primary")),
-                                        
-                                        tags$head(tags$style(type="text/css", "
-                                                             #loadmessage {
-                                                             position: relative;
-                                                             top: 60px;
-                                                             left: 0px;
-                                                             width: 100%;
-                                                             padding: 5px 0px 5px 0px;
-                                                             text-align: center;
-                                                             font-weight: bold;
-                                                             font-size: 100%;
-                                                             color: #000000;
-                                                             background-color: #428CF4;
-                                                             z-index: -1;
-                                                             }
-                                                             ")),
-                                        conditionalPanel(condition="$('html').hasClass('shiny-busy')",
-                                                         tags$div("SparseregIV is running...",id="loadmessage"))
-                                        )
-                           
-                           )
+                sidebarPanel(h3('Data'),
+                    # Inputs (response, endogenous, inst, covariates)
+                    selectInput('spiv.yvar', 'Select response', ''),
+                    selectInput('spiv.endog', 'Select endogenous variable', ''),
+                    # Checkbox to choose a two instrument model
+                    awesomeCheckbox("num.insts", label = "Use two instruments", value = FALSE),
+                    selectInput('spiv.inst', 'Select instrument', ''),
+                    # Second instrument, only shows up if 'num.insts' is TRUE
+                    selectInput('spiv.inst.2', 'Select second instrument', ''),
+                    selectInput('spiv.xvars', 'Select covariates', '', selected = '', multiple = TRUE),
+                    # Number of bootstraps
+                    sliderInput('spivmultboot', 'Number of bootstraps', min = 1, max = 20, value = 3),
+                    bsTooltip('spivmultboot', 'Number of bootstrap samples to use during a two-instrument sparseregIV regression. Not applicable for one instrument case. More than 3 can take very long to run.',
+                              'right', options = list(container = 'body')),
+                    # Two run buttons--run totally different models
+                    actionButton('spiv2.analysis', label = 'Run', class = 'btn-primary'),
+                    hidden(actionButton('spiv.analysis', label = 'Run', class = 'btn-primary')),
+                    # CSS to create a progress bar while the program is running
+                    tags$head(tags$style(type="text/css", "
+                                         #loadmessage-spiv {
+                                         position: fixed;
+                                         top: 0px;
+                                         left: 0px;
+                                         width: 100%;
+                                         padding: 55px 0px 5px 0px;
+                                         text-align: center;
+                                         font-weight: bold;
+                                         font-size: 100%;
+                                         color: #000000;
+                                         background-color: #428CF4;
+                                         z-index: 105;
+                                         }
+                                         ")),
+                    # Displays the above banner while there is R code running behind the scenes
+                    conditionalPanel(condition="$('html').hasClass('shiny-busy')",
+                                     tags$div("SparseregIV is running...",id="loadmessage-spiv"))
+                )
+            )
         ),
         
-        # sparseregTE
+        ### sparseregTE
         tabPanel(title = "sparseregTE",
                  titlePanel("Sparsereg TE"),
                  
@@ -323,7 +315,7 @@ runApp(
     
     server = function(input, output, session) {
 
-      observeEvent(input$default.button, {
+      observeEvent( input$default.button, {
         toggle("file1")
         toggle('header')
         toggle('sep')
@@ -392,9 +384,6 @@ runApp(
                           choices = names(df), selected = names(df)[4])
         updateSelectInput(session, inputId = 'spiv.xvars', label = 'Select covariates',
                           choices = names(df))
-        # sparseregIV plot dropdowns
-        #updateSelectInput(session, inputId = "spiv.plotly.txt", label = 'Select text', choices = names(df))
-        #updateSelectInput(session, inputId = "spiv.plotly.col", label = 'Select color', choices = names(df))
         # sparseregTE dropdowns
         updateSelectInput(session, inputId = 'te.yvar', label = 'Select response',
                           choices = names(df), selected = names(df)[1])
@@ -624,10 +613,11 @@ runApp(
         dat.orig()[, c(input$spiv.yvar, input$spiv.endog, input$spiv.inst, input$spiv.inst.2, input$spiv.xvars), drop = FALSE]
       })
       
-      observeEvent(input$num.insts, {
-        toggle("spiv.inst.2")
-        toggle("spiv2.analysis")
-        toggle("spiv.analysis")
+      observeEvent( input$num.insts, {
+        toggle('spiv.inst.2')
+        toggle('spivmultboot')
+        toggle('spiv2.analysis')
+        toggle('spiv.analysis')
         
         toggle('spiv.data.table')
         toggle('spiv2.data.table')
@@ -635,65 +625,67 @@ runApp(
         toggle('spiv.model.summary')
         toggle('spiv2.model.summary')
         
+        toggle('spiv.tabs')
+        toggle('spiv2.tabs')
       })
       
-      output$spiv.tabs <- renderUI({
-        
-        #print(names(dat.orig()))
-        items=names(dat.orig.all())
-        print(items)
-        #names(items)=items
-        #print(items)
-        
-        if (input$num.insts == FALSE) { 
-          #print(names(dat.orig()))
-          tabsetPanel(
-            id = "navbar",
-            tabPanel(title = "tab1",
-                     value = "tab1",
-                     h1("Tab 1"),
-                     plotOutput('spiv.plot.lte')
-            ),
-            tabPanel(title = "tab2",
-                     value = "tab2",
-                     h1("Tab 2"),
-                     selectInput('test', label = 'TEST', choices=c(TRUE, FALSE), selected = TRUE)
-            ),
-            tabPanel(title = "tab3",
-                     value = "tab3",
-                     h1("Tab 3"),
-                     selectInput('spiv.plotly.txt', label = 'text', choices = items),
-                     selectInput('spiv.plotly.col', label = 'color', choices = items),
-                     #uiOutput("spiv.plotly.txt"),
-                     #uiOutput("spiv.plotly.col"),
-                     actionButton('spiv.plotly.btn', label = "plotIVratio"),
-                     #uiOutput("spiv.diag.button"),
-                     plotlyOutput('spiv.plot')
-            )
-          )
-        } else {
-          tabsetPanel(
-            id = "navbar",
-            tabPanel(title = "tab4",
-                     value = "tab4",
-                      h1("Tab 4"),
-                      awesomeRadio('spiv2.col', label = 'Color', choices = c(TRUE, FALSE), selected = TRUE),
-                      plotOutput('spiv2.plot'),
-                      plotlyOutput('spiv2.plotly')
-
-                     
-            ),
-            tabPanel(title = "tab5",
-                     value = "tab5",
-                     h1("Tab 5")
-            ),
-            tabPanel(title = "tab6",
-                     value = "tab6",
-                     h1("Tab 6")
-            )
-          )
-        }
-      })
+      # output$spiv.tabs <- renderUI({
+      #   
+      #   #print(names(dat.orig()))
+      #   items=names(dat.orig.all())
+      #   print(items)
+      #   #names(items)=items
+      #   #print(items)
+      #   
+      #   if (input$num.insts == FALSE) { 
+      #     #print(names(dat.orig()))
+      #     tabsetPanel(
+      #       id = "navbar",
+      #       tabPanel(title = "tab1",
+      #                value = "tab1",
+      #                h1("Tab 1"),
+      #                plotOutput('spiv.plot.lte')
+      #       ),
+      #       tabPanel(title = "tab2",
+      #                value = "tab2",
+      #                h1("Tab 2"),
+      #                selectInput('test', label = 'TEST', choices=c(TRUE, FALSE), selected = TRUE)
+      #       ),
+      #       tabPanel(title = "tab3",
+      #                value = "tab3",
+      #                h1("Tab 3"),
+      #                selectInput('spiv.plotly.txt', label = 'text', choices = items),
+      #                selectInput('spiv.plotly.col', label = 'color', choices = items),
+      #                #uiOutput("spiv.plotly.txt"),
+      #                #uiOutput("spiv.plotly.col"),
+      #                actionButton('spiv.plotly.btn', label = "plotIVratio"),
+      #                #uiOutput("spiv.diag.button"),
+      #                plotlyOutput('spiv.plot')
+      #       )
+      #     )
+      #   } else {
+      #     tabsetPanel(
+      #       id = "navbar",
+      #       tabPanel(title = "tab4",
+      #                value = "tab4",
+      #                 h1("Tab 4"),
+      #                 awesomeRadio('spiv2.col', label = 'Color', choices = c(TRUE, FALSE), selected = TRUE),
+      #                 plotOutput('spiv2.plot'),
+      #                 plotlyOutput('spiv2.plotly')
+      # 
+      #                
+      #       ),
+      #       tabPanel(title = "tab5",
+      #                value = "tab5",
+      #                h1("Tab 5")
+      #       ),
+      #       tabPanel(title = "tab6",
+      #                value = "tab6",
+      #                h1("Tab 6")
+      #       )
+      #     )
+      #   }
+      # })
       
       observeEvent( input$spiv.analysis, {
         X<-as.matrix(spiv.data()[-(1:3)])
@@ -701,6 +693,23 @@ runApp(
         X<-X[,keep.cols]
         
         fit.sparseIV <- sparseregIV(y = as.numeric(spiv.data()[,1]), endog = as.numeric(spiv.data()[,2]), inst = as.numeric(spiv.data()[,3]), X = X)
+        
+        items=names(dat.orig.all())
+        print(items)
+        
+        output$spiv.tabs <- renderUI({
+          tabsetPanel(
+            tabPanel('LTE Plot',
+                    plotOutput('spiv.plot.lte')
+            ),
+            tabPanel('Plotly',
+                    selectInput('spiv.plotly.txt', label = 'text', choices = items),
+                    selectInput('spiv.plotly.col', label = 'color', choices = items),
+                    actionButton('spiv.plotly.btn', label = "plotIVratio"),
+                    plotlyOutput('spiv.plot')
+            )
+          )
+        })
         
         output$spiv.model.summary <- renderPrint({
           summary(fit.sparseIV)
@@ -737,7 +746,6 @@ runApp(
       
       
       observeEvent( input$spiv2.analysis, {
-        # dat.full = complete.cases(mtcars)
         print(spiv2.data()[4])
         X<-as.matrix(spiv2.data()[-(1:4)])
         keep.cols<-apply(X,2,sd)>0
@@ -745,11 +753,7 @@ runApp(
         
         # Not working here, although runs in console :/
         fit.sparseIV.2 <- sparseregIV(y = as.numeric(spiv2.data()[,1]), endog = as.numeric(spiv2.data()[,2]), inst = as.numeric(spiv2.data()[,3]), 
-                                      inst2 = as.numeric(spiv2.data()[,4]), X = X, mult.boot = 3)
-        
-        # fit.sparseIV <- reactive({
-        #   sparseregIV(y = as.numeric(data()[,1]), endog = as.numeric(data()[,2]), inst = as.numeric(data()[,3]), X = X)
-        # })
+                                      inst2 = as.numeric(spiv2.data()[,4]), X = X, mult.boot = input$spivmultboot)
         
         output$spiv2.model.summary <- renderPrint({
           summary(fit.sparseIV.2)
@@ -830,14 +834,14 @@ runApp(
             )
         })
         
-        observeEvent(input$te2.plot.btn, {
+        observeEvent( input$te2.plot.btn, {
           output$te2.plot <- renderPlot({
             plot_lte(fit.sparseTE, dat.orig()[,input$te2.plot.x], dat.orig()[,input$te2.plot.y], 
                      add.marginal = input$te2.plot.marg, color = input$te2.plot.col)
           })
         })
         
-        observeEvent(input$te1.plot.btn, {
+        observeEvent( input$te1.plot.btn, {
           output$te1.plot <- renderPlot({
             plot_lte(fit.sparseTE, dat.orig()[,input$te1.plot.x], add.marginal = input$te1.plot.marg, 
                      color = input$te1.plot.col, size = input$te1.plot.size)
