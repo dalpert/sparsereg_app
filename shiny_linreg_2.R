@@ -8,7 +8,9 @@ library(shiny)
 library(shinyBS)
 library(shinyjs)
 library(shinyWidgets)
+library(shinythemes)
 library(plotly)
+library(ggjoy)
 library(ggplot2)
 library(ggExtra)
 library(dplyr)
@@ -18,7 +20,7 @@ data(mtcars)
 runApp(
   list(
     
-    ui = navbarPage('',
+    ui = navbarPage('',theme = shinytheme("cerulean"),
   
         # Data upload
         tabPanel("Upload File",
@@ -92,7 +94,7 @@ runApp(
                     textOutput('iv.vars'),
                     verbatimTextOutput('iv.model.summary')
                 ),
-                sidebarPanel(h3('Your Data'),
+                sidebarPanel(h3('Data'),
                     # Inputs (response, endogenous, inst, covariates) and run button
                     selectInput('iv.yvar', 'Select response', ''),
                     selectInput('iv.endog', 'Select endogenous variable', ''),
@@ -107,7 +109,7 @@ runApp(
         tabPanel(title = 'sparsereg',
             titlePanel('Sparsereg'),
             sidebarLayout(position = 'right',
-                mainPanel(h2("Your Model"), 
+                mainPanel(h3("Model"), 
                     shinyjs::useShinyjs(),
                     textOutput('sp.txt'),
                     tableOutput('sp.data.table'),
@@ -146,10 +148,10 @@ runApp(
                                          width: 100%;
                                          padding: 55px 0px 5px 0px;
                                          text-align: center;
-                                         font-weight: bold;
+                                         font-weight: normal;
                                          font-size: 100%;
-                                         color: #000000;
-                                         background-color: #428CF4;
+                                         color: #FFFFFF;
+                                         background-color: #0A369D;
                                          z-index: 105;
                                          }
                                          ")),
@@ -200,10 +202,10 @@ runApp(
                                          width: 100%;
                                          padding: 55px 0px 5px 0px;
                                          text-align: center;
-                                         font-weight: bold;
+                                         font-weight: normal;
                                          font-size: 100%;
-                                         color: #000000;
-                                         background-color: #428CF4;
+                                         color: #FFFFFF;
+                                         background-color: #0A369D;
                                          z-index: 105;
                                          }
                                          ")),
@@ -219,7 +221,7 @@ runApp(
                  titlePanel("Sparsereg TE"),
                  
                  sidebarLayout(position = "right",
-                               mainPanel(h2("Your Model"), 
+                               mainPanel(h3("Model"), 
                                          textOutput('te.txt'),
                                          #textOutput('te.vars'),
                                          tableOutput(outputId = 'te.table'),
@@ -230,7 +232,7 @@ runApp(
                                          
                                ),
 
-                               sidebarPanel(h2("Your Data"),
+                               sidebarPanel(h3("Data"),
                                             # Response
                                             selectInput('te.yvar', 'Select response', ""),
                                             # Treatment
@@ -241,22 +243,22 @@ runApp(
                                             # Run button
                                             actionButton("te.analysis","Run", class = "btn-primary"),
                                             tags$head(tags$style(type="text/css", "
-                                                                #loadmessagete {
+                                                                #loadmessage-te {
                                                                  position: fixed;
                                                                  top: 0px;
                                                                  left: 0px;
                                                                  width: 100%;
                                                                  padding: 55px 0px 5px 0px;
                                                                  text-align: center;
-                                                                 font-weight: bold;
+                                                                 font-weight: normal;
                                                                  font-size: 100%;
-                                                                 color: #000000;
-                                                                 background-color: #428CF4;
+                                                                 color: #FFFFFF;
+                                                                 background-color: #0A369D;
                                                                  z-index: 105;
                                                                  }
                                                                  ")),
                                             conditionalPanel(condition="$('html').hasClass('shiny-busy')",
-                                                             tags$div("SparseregTE is running...",id="loadmessagete"))
+                                                             tags$div("SparseregTE is running...",id="loadmessage-te"))
                                             
                                )
                                
@@ -268,7 +270,7 @@ runApp(
                  titlePanel("Sparsereg NP"),
                  
                  sidebarLayout(position = "right",
-                               mainPanel(h2("Your Model"), 
+                               mainPanel(h3("Model"), 
                                          textOutput('np.txt'),
                                          #textOutput('te.vars'),
                                          tableOutput(outputId = 'np.table'),
@@ -280,7 +282,7 @@ runApp(
                                          
                                ),
                                
-                               sidebarPanel(h2("Your Data"),
+                               sidebarPanel(h3("Data"),
                                             # Response
                                             selectInput('np.yvar', 'Select response', ""),
                                             # Covariates
@@ -289,22 +291,22 @@ runApp(
                                             # Run button
                                             actionButton("np.analysis","Run", class = "btn-primary"),
                                             tags$head(tags$style(type="text/css", "
-                                                                 #loadmessage {
+                                                                 #loadmessage-np {
                                                                  position: fixed;
-                                                                 top: 60px;
+                                                                 top: 0px;
                                                                  left: 0px;
                                                                  width: 100%;
-                                                                 padding: 5px 0px 5px 0px;
+                                                                 padding: 55px 0px 5px 0px;
                                                                  text-align: center;
-                                                                 font-weight: bold;
+                                                                 font-weight: normal;
                                                                  font-size: 100%;
-                                                                 color: #000000;
-                                                                 background-color: #428CF4;
+                                                                 color: #FFFFFF;
+                                                                 background-color: #0A369D;
                                                                  z-index: 105;
                                                                  }
                                                                  ")),
                                             conditionalPanel(condition="$('html').hasClass('shiny-busy')",
-                                                             tags$div("SparseregNP is running...",id="loadmessage"))
+                                                             tags$div("SparseregNP is running...",id="loadmessage-np"))
                                             
                                             )
                                
@@ -574,8 +576,8 @@ runApp(
             tabPanel('Plot',
                 plotOutput('sp.plot')
             ),
-            tabPanel('Violin Plot',
-                plotOutput('sp.viol.plot')
+            tabPanel('Joy Plot',
+                plotOutput('sp.joy.plot')
             )
           )
         })
@@ -583,8 +585,8 @@ runApp(
         output$sp.plot <- renderPlot({
           plot(fit.sparse)
         })
-        output$sp.viol.plot <- renderPlot({
-          plot_posterior(fit.sparse, type = "mode", geom = "violin")
+        output$sp.joy.plot <- renderPlot({
+          plot_posterior(fit.sparse, type = "mode", geom = "joy")
         })
         
       })
@@ -695,17 +697,18 @@ runApp(
         fit.sparseIV <- sparseregIV(y = as.numeric(spiv.data()[,1]), endog = as.numeric(spiv.data()[,2]), inst = as.numeric(spiv.data()[,3]), X = X)
         
         items=names(dat.orig.all())
-        print(items)
+        #print(items)
         
         output$spiv.tabs <- renderUI({
           tabsetPanel(
             tabPanel('LTE Plot',
-                    plotOutput('spiv.plot.lte')
+                     sliderInput("spiv.plot.size", "Point size", min = 0.1, max = 2, value = 0.1, step= 0.1),
+                     plotOutput('spiv.plot.lte')
             ),
             tabPanel('Plotly',
                     selectInput('spiv.plotly.txt', label = 'text', choices = items),
                     selectInput('spiv.plotly.col', label = 'color', choices = items),
-                    actionButton('spiv.plotly.btn', label = "plotIVratio"),
+                    actionBttn('spiv.plotly.btn', label = 'Plot'),
                     plotlyOutput('spiv.plot')
             )
           )
@@ -716,13 +719,13 @@ runApp(
         })
         
         output$spiv.plot.lte <- renderPlot({
-          plot_lte(fit.sparseIV)
+          plot_lte(fit.sparseIV, size = input$spiv.plot.size)
         })
         
         observeEvent( input$spiv.plotly.btn, {
-          print('that worked')
+          #print('that worked')
           #print(fit.sparseIV$stage1)
-          print(head(dat.orig.all()))
+          #print(head(dat.orig.all()))
           d <- cbind(dat.orig.all(), denom = fit.sparseIV$stage1, numer = fit.sparseIV$lice * fit.sparseIV$stage1)
           #print(head(d))
           x <- list(
@@ -746,7 +749,7 @@ runApp(
       
       
       observeEvent( input$spiv2.analysis, {
-        print(spiv2.data()[4])
+        #print(spiv2.data()[4])
         X<-as.matrix(spiv2.data()[-(1:4)])
         keep.cols<-apply(X,2,sd)>0
         X<-X[,keep.cols]
@@ -756,7 +759,7 @@ runApp(
                                       inst2 = as.numeric(spiv2.data()[,4]), X = X, mult.boot = input$spivmultboot)
         
         items=names(dat.orig.all())
-        print(items)
+        #print(items)
         
         output$spiv2.tabs <- renderUI({
             tabsetPanel(
@@ -823,7 +826,7 @@ runApp(
         keep.cols<-apply(X,2,sd)>0
         X<-X[,keep.cols]
         
-        print(exists('fit.sparseTE'))
+        #print(exists('fit.sparseTE'))
         
         fit.sparseTE <- sparseregTE(y = as.numeric(te.data()[,1]), X = X, treat = as.numeric(te.data()[,2]))
         
@@ -831,25 +834,25 @@ runApp(
           summary(fit.sparseTE)
         })
         
-        print(exists('fit.sparseTE'))
+        #print(exists('fit.sparseTE'))
         
         output$te.tabs <- renderUI({
           
           items=names(te.data()[(-1)])  
           
-          print('this works!!!')
+          #print('this works!!!')
             tabsetPanel(
               tabPanel('Diagnostic plot - 2 vars',
                        selectInput('te2.plot.x', label = 'X', choices = items),
                        selectInput('te2.plot.y', label = 'Y', choices = items),
-                       awesomeRadio('te2.plot.col', label = 'Color', choices = c(TRUE, FALSE), selected = TRUE),
+                       #awesomeRadio('te2.plot.col', label = 'Color', choices = c(TRUE, FALSE), selected = TRUE),
                        awesomeRadio('te2.plot.marg', label = 'Marginal distribution', choices = c(TRUE, FALSE), selected = TRUE),
                        actionBttn('te2.plot.btn', 'Plot'),
                        plotOutput('te2.plot')
               ),
               tabPanel('Diagnostic plot - 1 var',
                        selectInput('te1.plot.x', label = 'X', choices = items),
-                       awesomeRadio('te1.plot.col', label = 'Color', choices = c(TRUE, FALSE), selected = TRUE),
+                       #awesomeRadio('te1.plot.col', label = 'Color', choices = c(TRUE, FALSE), selected = TRUE),
                        awesomeRadio('te1.plot.marg', label = 'Marginal distribution', choices = c(TRUE, FALSE), selected = TRUE),
                        sliderInput("te1.plot.size", "Point size", min = 0.1, max = 2, value = 0.1, step= 0.1),
                        actionBttn('te1.plot.btn', 'Plot'),
