@@ -1,43 +1,46 @@
 server = function(input, output, session) {
   
-  # observeEvent( input$preload.dat, {
-  #   print('sup')
-  #   dat.orig <- reactive({
-  #     df = mtcars
-  #     # Linear regression dropdowns
-  #     updateSelectInput(session, inputId = 'yvar', label = 'Select response',
-  #                       choices = names(df), selected = names(df)[1])
-  #     updateSelectInput(session, inputId = 'xvars', label = 'Select covariates',
-  #                       choices = names(df))
-  #     print('yoo')
-  #     return(df)
-  #   })
-  # })
-  
+  observeEvent( input$default.button, {
+    toggle("file1")
+    toggle('header')
+    toggle('sep')
+    toggle('quote')
+  })
   
   # Data upload--upload data and update input selections to have correct var. names
+  
   dat.orig <- reactive({ 
+    df <- reactive(# , 
+      {
+        mtcars
+      })()
     
-    req(input$file1) ## ?req #  require that the input is available
-    
-    inFile <- input$file1 
-    print(inFile)
-    
-    # tested with a following dataset: write.csv(mtcars, "mtcars.csv")
-    # and                              write.csv(iris, "iris.csv")
-    df <- read.csv(inFile$datapath, header = input$header, sep = input$sep,
-                   quote = input$quote)
+    if(!input$default.button) { ## ?req #  require that the input is available
+      
+      inFile <- input$file1 
+      #print(inFile)
+      
+      # tested with a following dataset: write.csv(mtcars, "mtcars.csv")
+      # and                              write.csv(iris, "iris.csv")
+      df <- read.csv(inFile$datapath, header = input$header, sep = input$sep,
+                     quote = input$quote)
+    }
+    # if(input$preload.dat != defaultClicked) {
+    #   cat("preload button clicked ", input$preload.dat, " time\n")
+    #   cat("previous value was", defaultClicked, "\n")
+    #   df <- reactive(# , 
+    #     {
+    #       iris
+    #     })()
+    #   defaultClicked <<- input$preload.dat
+    #   reset("file1")
+    # }
     df <- df[,sapply(df, is.numeric)]
     
-    # Update inputs (you could create an observer with both updateSel...)
-    # You can also constraint your choices. If you wanted select only numeric
-    # variables you could set "choices = sapply(df, is.numeric)"
-    # It depends on what do you want to do later on.
-    
     # Linear regression dropdowns
-    updateSelectInput(session, inputId = 'yvar', label = 'Select response',
+    updateSelectInput(session, inputId = 'lin.yvar', label = 'Select response',
                       choices = names(df), selected = names(df)[1])
-    updateSelectInput(session, inputId = 'xvars', label = 'Select covariates',
+    updateSelectInput(session, inputId = 'lin.xvars', label = 'Select covariates',
                       choices = names(df))
     # IV regression dropdowns
     updateSelectInput(session, inputId = 'iv.yvar', label = 'Select response',
@@ -62,6 +65,8 @@ server = function(input, output, session) {
                       choices = names(df), selected = names(df)[2])
     updateSelectInput(session, inputId = 'spiv.inst', label = 'Select instrument',
                       choices = names(df), selected = names(df)[3])
+    updateSelectInput(session, inputId = 'spiv.inst.2', label = 'Select second instrument',
+                      choices = names(df), selected = names(df)[4])
     updateSelectInput(session, inputId = 'spiv.xvars', label = 'Select covariates',
                       choices = names(df))
     # sparseregTE dropdowns
@@ -71,11 +76,16 @@ server = function(input, output, session) {
                       choices = names(df), selected = names(df)[2])
     updateSelectInput(session, inputId = 'te.xvars', label = 'Select covariates',
                       choices = names(df))
+    # sparseregNP dropdowns
+    updateSelectInput(session, inputId = 'np.yvar', label = 'Select response',
+                      choices = names(df), selected = names(df)[1])
+    updateSelectInput(session, inputId = 'np.xvars', label = 'Select covariates',
+                      choices = names(df))
     
     #
-    output$vars <- renderText({
+    output$lin.vars <- renderText({
       #eq()
-      form.linreg()
+      form.lin()
       #paste('lm(formula = ', eq(), 'data = ')
     })
     
@@ -86,18 +96,27 @@ server = function(input, output, session) {
     return(df)
   })
   
+  
   dat.orig.all <- reactive({ 
-    req(input$file1) ## ?req #  require that the input is available
+    df.all <- reactive(# , 
+      {
+        mtcars
+      })()
     
-    inFile <- input$file1 
-    
-    # tested with a following dataset: write.csv(mtcars, "mtcars.csv")
-    # and                              write.csv(iris, "iris.csv")
-    df.all <- read.csv(inFile$datapath, header = input$header, sep = input$sep,
-                       quote = input$quote)
+    if(!input$default.button) {
+      req(input$file1) ## ?req #  require that the input is available
+      
+      inFile <- input$file1 
+      
+      # tested with a following dataset: write.csv(mtcars, "mtcars.csv")
+      # and                              write.csv(iris, "iris.csv")
+      df.all <- read.csv(inFile$datapath, header = input$header, sep = input$sep,
+                         quote = input$quote)
+    }
+    return(df.all)
   })
   
-  output$contents <- renderTable({
+  output$data.table <- renderTable({
     dat.orig()
   })
   
@@ -109,118 +128,151 @@ server = function(input, output, session) {
   })
   
   
-  # Linear regression
-  eq <- reactive({
-    paste(input$yvar, '~', paste(input$xvars, collapse = ' + '))
+  dname <- reactive({
+    if(!input$default.button) {
+      return(input$file1$name)
+    }
+    return('mtcars')
   })
   
-  form.linreg <- reactive({
-    paste('lm(formula = ', input$yvar, '~', paste(input$xvars, collapse = ' + '), ', data = ',
-          strsplit(input$file1$name, '.', fixed = TRUE)[[1]][1], ')')
+  var.names = reactive({
+    items=names(dat.orig.all())
+    names(items)=items
+    return(items)
   })
   
   
+  ### Linear regression
+  lin.eq <- reactive({
+    paste(input$lin.yvar, ' ~ ', paste(input$lin.xvars, collapse = ' + '))
+  })
   
-  observeEvent( input$analysis, {
+  form.lin <- reactive({
+    paste0('lm(formula = ', input$lin.yvar, ' ~ ', paste(input$lin.xvars, collapse = ' + '), ', data = ',
+           strsplit(dname(), '.', fixed = TRUE)[[1]][1], ')')
+  })
+  
+  
+  # Event listener for linear regression 'run' button
+  observeEvent( input$lin.analysis, {
     #form = as.formula(paste0('mpg ~ ', eq()))
-    form = as.formula(eq())
-    model=lm(form, data = dat.orig())
+    form = as.formula(lin.eq())
+    fit.lin=lm(form, data = dat.orig())
     
-    output$modelSummary <- renderPrint({
-      summary(model)
+    # Print model summary (tab 1)
+    output$lin.model.summary <- renderPrint({
+      summary(fit.lin)
     })
     
-    output$b.diag <- renderUI({
-      actionButton('l.diag', label = "Plot diagnostics")
+    addTooltip(session, id = "lin.model.summary", title = "This is an input.",
+               placement = "left", trigger = "hover")
+    addTooltip(session, id = "lin.yvar", title = "This is an input.",
+               placement = "left", trigger = "hover")
+    
+    output$lin.tabs <- renderUI({
+      tabsetPanel(
+        tabPanel('Residual vs. Fitted',
+                 plotOutput('lin.plot.1')
+        ),
+        tabPanel('Normal Q-Q',
+                 plotOutput('lin.plot.2')
+        ),
+        tabPanel('Scale-Location',
+                 plotOutput('lin.plot.3')
+        ),
+        tabPanel("Cook's Distance",
+                 plotOutput('lin.plot.4')
+        )
+      )
     })
-    observeEvent( input$l.diag, {
-      output$diagnostic <- renderUI({
-        plotOutput('d')
-      })
-      output$d <- renderPlot({
-        plot(model)
-      })
+    
+    output$lin.plot.1 <- renderPlot({
+      plot(fit.lin, which = 1)
     })
+    output$lin.plot.2 <- renderPlot({
+      plot(fit.lin, which = 2)
+    })
+    output$lin.plot.3 <- renderPlot({
+      plot(fit.lin, which = 3)
+    })
+    output$lin.plot.4 <- renderPlot({
+      plot(fit.lin, which = 4)
+    })
+    
+    
     
   })
   
   
-  # IV regression
+  ### IV regression
   iv.eq <- reactive({
+    paste0('ivreg(formula = ', input$iv.yvar, ' ~ ', input$iv.endog, ' + ', paste(input$iv.xvars, collapse = ' + '), 
+           ' | ', input$iv.inst, ' + ', paste(input$iv.xvars, collapse = ' + ') ,', data = ',
+           strsplit(dname(), '.', fixed = TRUE)[[1]][1], ')' )
+  })
+  
+  iv.eq.form <- reactive({
     #paste(input$iv.yvar, '~', input$iv.endog, '+', paste(input$iv.xvars, collapse = ' + '), 
     #     '|', input$iv.inst, '+', paste(input$iv.xvars, collapse = ' + '))
-    paste('ivreg(formula = ', input$iv.yvar, '~', input$iv.endog, '+', paste(input$iv.xvars, collapse = ' + '), 
-          '|', input$iv.inst, '+', paste(input$iv.xvars, collapse = ' + '), ', data = ',
-          strsplit(input$file1$name, '.', fixed = TRUE)[[1]][1], ')')
-    
+    paste0(input$iv.yvar, ' ~ ', input$iv.endog, '+', paste(input$iv.xvars, collapse = ' + '), 
+           ' | ', input$iv.inst, '+', paste(input$iv.xvars, collapse = ' + '))
     #paste(input$xvars, collapse = ' + ')
   })
   
   observeEvent( input$iv.analysis, {
-    #form = as.formula(paste0('mpg ~ ', eq()))
-    form = as.formula(iv.eq())
-    model=ivreg(form, data = dat.orig())
+    form = as.formula(iv.eq.form())
+    fit.iv=ivreg(form, data = dat.orig())
     
-    output$iv.modelSummary <- renderPrint({
-      summary(model)
+    output$iv.model.summary <- renderPrint({
+      summary(fit.iv)
     })
     
   })
   
   
-  
-  # sparsereg
+  ### sparsereg
+  # reactive dataframe with data from selected variables
   sp.data <- reactive({
     dat.orig()[, c(input$sp.yvar, input$sp.treat, input$sp.xvars), drop = FALSE]
   })
   
-  output$sp.table <- renderTable({
+  # table to display selected data
+  output$sp.data.table <- renderTable({
     head(sp.data())
   }, rownames = TRUE)
   
-  # output$sp.progress <- renderPrint({
-  #   
-  # })
-  
-  
+  # event listener for sparsereg 'Run' button
   observeEvent( input$sp.analysis, {
-    X<-as.matrix(sp.data()[-(1:2)])
+    X<-as.matrix(sp.data()[,-(1:2)])
     keep.cols<-apply(X,2,sd)>0
     X<-X[,keep.cols]
     
-    fit.sparse <- sparsereg(y = sp.data()[,1], X, treat = sp.data()[,2], EM=eval(parse(text=input$bins)), 
-                            scale.type = input$sc)
+    fit.sparse <- sparsereg(y = sp.data()[,1], X, treat = sp.data()[,2], EM=eval(parse(text=input$spem)), 
+                            scale.type = input$spscale)
     
-    output$sp.modelSummary <- renderPrint({
+    output$sp.model.summary <- renderPrint({
       summary(fit.sparse)
     })
     
-    output$sp.diag.button.1 <- renderUI({
-      actionButton('sp.plot.a', label = "Plot")
-    })
-    observeEvent( input$sp.plot.a, {
-      output$sp.plot.contain <- renderUI({
-        plotOutput('sp.plot')
-      })
-      output$sp.plot <- renderPlot({
-        plot(fit.sparse)
-      })
+    output$sp.tabs <- renderUI({
+      tabsetPanel(
+        tabPanel('Plot',
+                 plotOutput('sp.plot')
+        ),
+        tabPanel('Joy Plot',
+                 plotOutput('sp.joy.plot')
+        )
+      )
     })
     
-    output$sp.diag.button.2 <- renderUI({
-      actionButton('sp.viol.a', label = "Violin plot")
+    output$sp.plot <- renderPlot({
+      plot(fit.sparse)
     })
-    observeEvent( input$sp.viol.a, {
-      output$sp.viol.contain <- renderUI({
-        plotOutput('sp.viol')
-      })
-      output$sp.viol <- renderPlot({
-        violinplot(fit.sparse)
-      })
+    output$sp.joy.plot <- renderPlot({
+      plot_posterior(fit.sparse, type = "mode", geom = "joy")
     })
     
   })
-  
   
   # sparseregIV
   spiv.eq <- reactive({
@@ -231,65 +283,153 @@ server = function(input, output, session) {
     parse(text = paste0("c('", paste(input$spiv.xvars, collapse = "','"), "')"))
   })
   
-  output$table <- renderTable({
-    head(data())
+  output$spiv.data.table <- renderTable({
+    head(spiv.data())
   }, rownames = TRUE)
   
-  data <- reactive({
+  output$spiv2.data.table <- renderTable({
+    head(spiv2.data())
+  }, rownames = TRUE)
+  
+  spiv.data <- reactive({
     dat.orig()[, c(input$spiv.yvar, input$spiv.endog, input$spiv.inst, input$spiv.xvars), drop = FALSE]
   })
+  spiv2.data <- reactive({
+    dat.orig()[, c(input$spiv.yvar, input$spiv.endog, input$spiv.inst, input$spiv.inst.2, input$spiv.xvars), drop = FALSE]
+  })
+  
+  observeEvent( input$num.insts, {
+    toggle('spiv.inst.2')
+    toggle('spivmultboot')
+    toggle('spiv2.analysis')
+    toggle('spiv.analysis')
+    
+    toggle('spiv.data.table')
+    toggle('spiv2.data.table')
+    
+    toggle('spiv.model.summary')
+    toggle('spiv2.model.summary')
+    
+    toggle('spiv.tabs')
+    toggle('spiv2.tabs')
+  })
+  
+  # output$spiv.tabs <- renderUI({
+  #   
+  #   #print(names(dat.orig()))
+  #   items=names(dat.orig.all())
+  #   print(items)
+  #   #names(items)=items
+  #   #print(items)
+  #   
+  #   if (input$num.insts == FALSE) { 
+  #     #print(names(dat.orig()))
+  #     tabsetPanel(
+  #       id = "navbar",
+  #       tabPanel(title = "tab1",
+  #                value = "tab1",
+  #                h1("Tab 1"),
+  #                plotOutput('spiv.plot.lte')
+  #       ),
+  #       tabPanel(title = "tab2",
+  #                value = "tab2",
+  #                h1("Tab 2"),
+  #                selectInput('test', label = 'TEST', choices=c(TRUE, FALSE), selected = TRUE)
+  #       ),
+  #       tabPanel(title = "tab3",
+  #                value = "tab3",
+  #                h1("Tab 3"),
+  #                selectInput('spiv.plotly.txt', label = 'text', choices = items),
+  #                selectInput('spiv.plotly.col', label = 'color', choices = items),
+  #                #uiOutput("spiv.plotly.txt"),
+  #                #uiOutput("spiv.plotly.col"),
+  #                actionButton('spiv.plotly.btn', label = "plotIVratio"),
+  #                #uiOutput("spiv.diag.button"),
+  #                plotlyOutput('spiv.plot')
+  #       )
+  #     )
+  #   } else {
+  #     tabsetPanel(
+  #       id = "navbar",
+  #       tabPanel(title = "tab4",
+  #                value = "tab4",
+  #                 h1("Tab 4"),
+  #                 awesomeRadio('spiv2.col', label = 'Color', choices = c(TRUE, FALSE), selected = TRUE),
+  #                 plotOutput('spiv2.plot'),
+  #                 plotlyOutput('spiv2.plotly')
+  # 
+  #                
+  #       ),
+  #       tabPanel(title = "tab5",
+  #                value = "tab5",
+  #                h1("Tab 5")
+  #       ),
+  #       tabPanel(title = "tab6",
+  #                value = "tab6",
+  #                h1("Tab 6")
+  #       )
+  #     )
+  #   }
+  # })
   
   observeEvent( input$spiv.analysis, {
-    # dat.full = complete.cases(mtcars)
-    X<-as.matrix(data()[-(1:3)])
+    X<-as.matrix(spiv.data()[,-(1:3)])
     keep.cols<-apply(X,2,sd)>0
     X<-X[,keep.cols]
+    X<-as.matrix(X)
     
-    print(class(data()[,1]))
-    print(class(data()[,2]))
-    print(data()[,2])
-    print(class(data()[,3]))
-    print(data()[,3])
-    print(class(X))
-    #print(sparseregIV)
+    fit.sparseIV <- sparseregIV(y = as.numeric(spiv.data()[,1]), endog = as.numeric(spiv.data()[,2]), inst = as.numeric(spiv.data()[,3]), X = X)
     
-    # Not working here, although runs in console :/
-    fit.sparseIV <- sparseregIV(y = as.numeric(data()[,1]), endog = as.numeric(data()[,2]), inst = as.numeric(data()[,3]), X = X)
+    items=names(dat.orig.all())
+    #print(items)
     
-    # fit.sparseIV <- reactive({
-    #   sparseregIV(y = as.numeric(data()[,1]), endog = as.numeric(data()[,2]), inst = as.numeric(data()[,3]), X = X)
-    # })
+    output$spiv.tabs <- renderUI({
+      tabsetPanel(
+        tabPanel('Plot',
+                 plotOutput('spiv.plot')
+        ),
+        tabPanel('LTE Plot',
+                 sliderInput("spiv.plot.size", "Point size", min = 0.1, max = 2, value = 0.1, step= 0.1),
+                 plotOutput('spiv.plot.lte')
+        ),
+        tabPanel('Plotly',
+                 selectInput('spiv.plotly.txt', label = 'text', choices = items),
+                 selectInput('spiv.plotly.col', label = 'color', choices = items),
+                 actionBttn('spiv.plotly.btn', label = 'Plot'),
+                 plotlyOutput('spiv.plotly')
+        )
+      )
+    })
     
-    output$spiv.modelSummary <- renderPrint({
+    output$spiv.model.summary <- renderPrint({
       summary(fit.sparseIV)
     })
     
-    output$spiv.plotly.txt <- renderUI({
-      items=names(dat.orig.all())
-      names(items)=items
-      selectInput("spiv.txt", label = 'Select text', choices = items)
+    output$spiv.plot <- renderPlot({
+      plot(fit.sparseIV)
     })
-    output$spiv.plotly.color <- renderUI({
-      items=names(dat.orig.all())
-      names(items)=items
-      selectInput("spiv.col", label = 'Select color', choices = items)
+    
+    output$spiv.plot.lte <- renderPlot({
+      plot_lte(fit.sparseIV, size = input$spiv.plot.size)
     })
-    output$spiv.diag.button <- renderUI({
-      actionButton('spiv.plot', label = "plotIVratio")
-    })
-    observeEvent( input$spiv.plot, {
+    
+    observeEvent( input$spiv.plotly.btn, {
+      #print('that worked')
+      #print(fit.sparseIV$stage1)
+      #print(head(dat.orig.all()))
       d <- cbind(dat.orig.all(), denom = fit.sparseIV$stage1, numer = fit.sparseIV$lice * fit.sparseIV$stage1)
+      #print(head(d))
       x <- list(
         title = 'Cov. of treatment and instrument from unit perturbation'
       )
       y <- list(
         title = 'Cov. of outcome and treatment from unit perturbation'
       )
-      output$IVplot <- renderPlotly({
+      output$spiv.plotly <- renderPlotly({
         plot_ly(d, x = ~denom, y = ~numer,
-                color = ~eval(parse(text = input$spiv.col)),
+                color = ~eval(parse(text = input$spiv.plotly.col)),
                 #size = ~eval(parse(text = size)),
-                text = ~paste(input$spiv.txt, ": ", eval(parse(text = input$spiv.txt))),
+                text = ~paste(input$spiv.plotly.txt, ": ", eval(parse(text = input$spiv.plotly.txt))),
                 alpha=0.7) %>%
           layout(xaxis = x, yaxis = y)
       })
@@ -299,18 +439,44 @@ server = function(input, output, session) {
   })
   
   
-  
-  # addPopover(session, "s.rb", "Data", content = paste0("
-  #                                                          Waiting time between ",
-  #                                                          "eruptions and the duration of the eruption for the Old Faithful geyser ",
-  #                                                          "in Yellowstone National Park, Wyoming, USA.
-  #                                                          
-  #                                                          Azzalini, A. and ",
-  #                                                          "Bowman, A. W. (1990). A look at some data on the Old Faithful geyser. ",
-  #                                                          "Applied Statistics 39, 357-365.
-  #                                                          
-  #                                                          "), trigger = 'click')
-  
+  observeEvent( input$spiv2.analysis, {
+    #print(spiv2.data()[4])
+    X<-as.matrix(spiv2.data()[,-(1:4)])
+    keep.cols<-apply(X,2,sd)>0
+    X<-X[,keep.cols]
+    
+    # Not working here, although runs in console :/
+    fit.sparseIV.2 <- sparseregIV(y = as.numeric(spiv2.data()[,1]), endog = as.numeric(spiv2.data()[,2]), inst = as.numeric(spiv2.data()[,3]), 
+                                  inst2 = as.numeric(spiv2.data()[,4]), X = X, mult.boot = input$spivmultboot)
+    
+    items=names(dat.orig.all())
+    #print(items)
+    
+    output$spiv2.tabs <- renderUI({
+      tabsetPanel('Plot',
+                  tabPanel('Plot',
+                           plotOutput('spiv2.plot')
+                  ),
+                  tabPanel('Plot LTE',
+                           awesomeRadio('spiv2.col', label = 'Color', choices = c(TRUE, FALSE), selected = TRUE),
+                           plotlyOutput('spiv2.plotly')
+                  )
+      )
+    })
+    
+    output$spiv2.model.summary <- renderPrint({
+      summary(fit.sparseIV.2)
+    })
+    
+    output$spiv2.plot <- renderPlot({
+      plot(fit.sparseIV.2)
+    })
+    
+    output$spiv2.plotly <- renderPlot({
+      plot_lte(fit.sparseIV.2, color = TRUE)
+    })
+    
+  })
   
   
   # sparseregTE
@@ -332,14 +498,98 @@ server = function(input, output, session) {
   
   observeEvent( input$te.analysis, {
     # dat.full = complete.cases(mtcars)
-    X<-as.matrix(te.data()[-(1:2)])
+    X<-as.matrix(te.data()[,-(1:2)])
     keep.cols<-apply(X,2,sd)>0
     X<-X[,keep.cols]
     
+    #print(exists('fit.sparseTE'))
+    
     fit.sparseTE <- sparseregTE(y = as.numeric(te.data()[,1]), X = X, treat = as.numeric(te.data()[,2]))
     
-    output$te.modelSummary <- renderPrint({
+    output$te.model.summary <- renderPrint({
       summary(fit.sparseTE)
+    })
+    
+    #print(exists('fit.sparseTE'))
+    
+    output$te.tabs <- renderUI({
+      
+      items=names(te.data()[(-1)])  
+      
+      #print('this works!!!')
+      tabsetPanel(
+        tabPanel('Plot',
+                 plotOutput('te.plot')
+        ),
+        tabPanel('Diagnostic plot - 2 vars',
+                 selectInput('te2.plot.x', label = 'X', choices = items),
+                 selectInput('te2.plot.y', label = 'Y', choices = items),
+                 #awesomeRadio('te2.plot.col', label = 'Color', choices = c(TRUE, FALSE), selected = TRUE),
+                 awesomeRadio('te2.plot.marg', label = 'Marginal distribution', choices = c(TRUE, FALSE), selected = TRUE),
+                 actionBttn('te2.plot.btn', 'Plot'),
+                 plotOutput('te2.plot')
+        ),
+        tabPanel('Diagnostic plot - 1 var',
+                 selectInput('te1.plot.x', label = 'X', choices = items),
+                 #awesomeRadio('te1.plot.col', label = 'Color', choices = c(TRUE, FALSE), selected = TRUE),
+                 awesomeRadio('te1.plot.marg', label = 'Marginal distribution', choices = c(TRUE, FALSE), selected = TRUE),
+                 sliderInput("te1.plot.size", "Point size", min = 0.1, max = 2, value = 0.1, step= 0.1),
+                 actionBttn('te1.plot.btn', 'Plot'),
+                 plotOutput('te1.plot')
+        )
+      )
+    })
+    
+    output$te.plot <- renderPlot({
+      plot(fit.sparseTE)
+    })
+    
+    observeEvent( input$te2.plot.btn, {
+      output$te2.plot <- renderPlot({
+        plot_lte(fit.sparseTE, dat.orig()[,input$te2.plot.x], dat.orig()[,input$te2.plot.y], 
+                 add.marginal = input$te2.plot.marg, color = input$te2.plot.col)
+      })
+    })
+    
+    observeEvent( input$te1.plot.btn, {
+      output$te1.plot <- renderPlot({
+        plot_lte(fit.sparseTE, dat.orig()[,input$te1.plot.x], add.marginal = input$te1.plot.marg, 
+                 color = input$te1.plot.col, size = input$te1.plot.size)
+      })
+    })
+    
+  })
+  
+  
+  
+  
+  # sparseregNP
+  np.dat <- reactive({
+    parse(text = paste0("c('", paste(input$np.xvars, collapse = "','"), "')"))
+  })
+  
+  output$np.vars <- renderTable({
+    dat.orig()[eval(np.dat())]
+  })
+  
+  output$np.table <- renderTable({
+    head(np.data())
+  }, rownames = TRUE)
+  
+  np.data <- reactive({
+    dat.orig()[, c(input$np.yvar, input$np.xvars), drop = FALSE]
+  })
+  
+  observeEvent( input$np.analysis, {
+    # dat.full = complete.cases(mtcars)
+    X<-as.matrix(np.data()[,-(1)])
+    keep.cols<-apply(X,2,sd)>0
+    X<-X[,keep.cols]
+    
+    fit.sparseNP <- sparseregNP(y = as.numeric(np.data()[,1]), X = X)
+    
+    output$np.model.summary <- renderPrint({
+      summary(fit.sparseNP$model)
     })
     
   })
